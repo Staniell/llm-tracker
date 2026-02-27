@@ -1,4 +1,4 @@
-import type { Task, ChatResponse } from "../types.js";
+import type { Task, TaskDetail, TaskStatus, ChatResponse } from "../types.js";
 
 const BASE = "";
 
@@ -22,9 +22,24 @@ export async function getTasks(): Promise<Task[]> {
   return data.tasks;
 }
 
-export async function getTask(id: number): Promise<Task> {
+export async function getTask(
+  id: number
+): Promise<{ task: Task; details: TaskDetail[] }> {
   const res = await fetch(`${BASE}/api/tasks/${id}`);
   if (!res.ok) throw new Error("Failed to fetch task");
+  return res.json();
+}
+
+export async function updateTaskStatus(
+  id: number,
+  status: TaskStatus
+): Promise<Task> {
+  const res = await fetch(`${BASE}/api/tasks/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Failed to update task status");
   const data = await res.json();
   return data.task;
 }

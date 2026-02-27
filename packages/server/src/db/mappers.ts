@@ -1,4 +1,4 @@
-import type { Task, ChatMessage } from "@llm-tracker/shared";
+import type { Task, ChatMessage, TaskDetail } from "@llm-tracker/shared";
 
 export function mapTaskRow(row: any): Task {
   return {
@@ -9,6 +9,15 @@ export function mapTaskRow(row: any): Task {
     priority: row.priority,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapTaskDetailRow(row: any): TaskDetail {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    content: row.content,
+    createdAt: row.created_at,
   };
 }
 

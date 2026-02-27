@@ -1,4 +1,4 @@
-import type { Task } from "../types.js";
+import type { Task, TaskStatus } from "../types.js";
 import TaskList from "./TaskList.js";
 import TaskDetail from "./TaskDetail.js";
 
@@ -6,12 +6,16 @@ interface TaskPanelProps {
   tasks: Task[];
   selectedTaskId: number | null;
   onSelectTask: (id: number | null) => void;
+  onUpdateTaskStatus: (id: number, status: TaskStatus) => void;
+  detailVersion: number;
 }
 
 export default function TaskPanel({
   tasks,
   selectedTaskId,
   onSelectTask,
+  onUpdateTaskStatus,
+  detailVersion,
 }: TaskPanelProps) {
   const selectedTask = selectedTaskId
     ? tasks.find((t) => t.id === selectedTaskId) ?? null
@@ -20,7 +24,12 @@ export default function TaskPanel({
   return (
     <div className="hidden md:flex flex-col h-full w-96 bg-white border-l border-gray-200">
       {selectedTask ? (
-        <TaskDetail task={selectedTask} onBack={() => onSelectTask(null)} />
+        <TaskDetail
+          task={selectedTask}
+          onBack={() => onSelectTask(null)}
+          onUpdateTaskStatus={onUpdateTaskStatus}
+          detailVersion={detailVersion}
+        />
       ) : (
         <>
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
@@ -33,7 +42,11 @@ export default function TaskPanel({
               )}
             </div>
           </div>
-          <TaskList tasks={tasks} onSelectTask={onSelectTask} />
+          <TaskList
+            tasks={tasks}
+            onSelectTask={onSelectTask}
+            onUpdateTaskStatus={onUpdateTaskStatus}
+          />
         </>
       )}
     </div>

@@ -6,9 +6,11 @@ A chat-based task tracker where natural language messages are interpreted by **G
 
 - **Natural language task management** — "Create a task to buy groceries", "Mark buy groceries as done"
 - **Multi-task creation** — "Create three tasks: X, Y, and Z"
+- **Appendable task details** — "Add a note to the report: it covers Q4 metrics" appends notes without overwriting
+- **Direct status toggling** — Click the check circle on any task card or use action buttons in the detail view
 - **Idempotent** — Sending the same message twice won't create duplicates
 - **Persistent** — All data stored in SQLite with WAL mode
-- **Real-time feedback** — Side effects (created/updated/deleted tasks) returned with each chat response
+- **Real-time feedback** — Side effects (created/updated/deleted/detail_added) returned with each chat response
 
 ## Architecture
 
@@ -23,7 +25,7 @@ A chat-based task tracker where natural language messages are interpreted by **G
 1. Validate input (non-empty string, max 2000 chars)
 2. Hash message → check idempotency cache → if hit, return cached response
 3. Load all tasks + recent 20 chat messages for LLM context
-4. Call Gemini 2.0 Flash with function calling tools (`create_task`, `update_task`, `delete_task`)
+4. Call Gemini 2.0 Flash with function calling tools (`create_task`, `update_task`, `delete_task`, `add_detail`)
 5. Parse function calls into typed intents
 6. Execute intents against DB in a transaction (re-check hash for race safety)
 7. Cache response and return to client with side effects
@@ -95,7 +97,8 @@ npm run build:client
 |--------|------|---------|----------|
 | `POST` | `/api/chat` | `{ message: string }` | `{ message: ChatMessage, sideEffects: TaskSideEffect[] }` |
 | `GET` | `/api/tasks` | — | `{ tasks: Task[] }` |
-| `GET` | `/api/tasks/:id` | — | `{ task: Task }` |
+| `GET` | `/api/tasks/:id` | — | `{ task: Task, details: TaskDetail[] }` |
+| `PATCH` | `/api/tasks/:id/status` | `{ status: "todo" \| "in_progress" \| "done" }` | `{ task: Task }` |
 | `POST` | `/admin/reset` | — | `{ message: string }` |
 
 ## Idempotency
@@ -136,13 +139,13 @@ llm-tracker/
 ├── packages/
 │   ├── shared/          # Shared TypeScript types
 │   │   └── src/
-│   │       ├── task.ts        # Task, TaskStatus, TaskPriority
+│   │       ├── task.ts        # Task, TaskDetail, TaskStatus, TaskPriority
 │   │       ├── chat.ts        # ChatMessage, ChatRole
 │   │       └── api.ts         # Request/Response types
 │   │
 │   ├── server/          # Express backend
 │   │   └── src/
-│   │       ├── db/            # SQLite schema, repos, connection
+│   │       ├── db/            # SQLite schema, repos (task, detail, chat, idempotency), connection
 │   │       ├── llm/           # Gemini client, tools, interpreter
 │   │       ├── routes/        # Express route handlers
 │   │       ├── services/      # Business logic orchestration
@@ -164,32 +167,34 @@ llm-tracker/
 The system prompt is built dynamically on every request. It injects **all current tasks** formatted as:
 
 ```
-#1: "Buy groceries" [status=todo, priority=medium] — Weekly shopping
+#1: "Buy groceries" [status=todo, priority=medium] — Weekly shopping (2 notes)
 ```
 
-This gives the model full awareness of existing tasks so it can resolve references like "mark the groceries one as done" to the correct `task_id`.
+This gives the model full awareness of existing tasks so it can resolve references like "mark the groceries one as done" to the correct `task_id`. Detail counts (e.g., "2 notes") are shown per task to inform the model without injecting full note content, keeping the prompt compact.
 
 Key behavioral rules in the prompt:
 - Call `create_task` when the user wants to add something; `update_task` with `status="done"` to complete
+- Call `add_detail` when the user wants to append a note, comment, or detail to a task — do NOT use `update_task` for this
 - Match tasks by name to their ID from the injected list
 - Respond with **text only** (no tool calls) for conversational queries like "what tasks do I have?"
 - Ask for clarification when ambiguous (e.g., "mark it as done" with multiple tasks)
 
 ### Tool / Function Schemas
 
-Three function declarations are registered via Gemini's `functionDeclarations` config:
+Four function declarations are registered via Gemini's `functionDeclarations` config:
 
 | Tool | Required Params | Optional Params | When Used |
 |------|----------------|-----------------|-----------|
 | `create_task` | `title: string` | `description: string`, `priority: "low" \| "medium" \| "high"` | User says "add", "create", "make a new task" |
 | `update_task` | `task_id: number` | `title`, `description`, `status: "todo" \| "in_progress" \| "done"`, `priority` | "Mark as done", "start working on", rename, reprioritize |
 | `delete_task` | `task_id: number` | — | User explicitly says "delete" or "remove" |
+| `add_detail` | `task_id: number`, `content: string` | — | User says "add a note to", "attach detail", "note that..." |
 
 Gemini can return **multiple parallel function calls** in a single response (e.g., "create three tasks: X, Y, Z" produces three `create_task` calls).
 
 ### Intent Interpretation
 
-The raw function call responses are parsed into typed **intent objects** (`CreateTaskIntent`, `UpdateTaskIntent`, `DeleteTaskIntent`) before any database work happens. This separates LLM output parsing from business logic — if you swapped Gemini for another provider, only the interpreter module would change.
+The raw function call responses are parsed into typed **intent objects** (`CreateTaskIntent`, `UpdateTaskIntent`, `DeleteTaskIntent`, `AddDetailIntent`) before any database work happens. This separates LLM output parsing from business logic — if you swapped Gemini for another provider, only the interpreter module would change.
 
 If the model returns function calls but no text, a summary is auto-generated (e.g., `Created task "Buy groceries". Created task "Clean house".`).
 
@@ -199,7 +204,8 @@ If the model returns function calls but no text, a summary is auto-generated (e.
 - **One tool per action** — Gemini returns parallel function calls natively; simpler schemas reduce hallucinations
 - **Temperature 0.2** — Low temperature for deterministic tool selection
 - **Synchronous SQLite** — `better-sqlite3` transactions are truly atomic (no event loop yielding)
-- **Optimistic UI updates** — Tasks update from `sideEffects` in the chat response, no extra GET call needed
+- **Optimistic UI updates** — Task status toggles update instantly in the UI and revert on error; chat side effects also update task state without extra GET calls
+- **Direct status endpoint** — `PATCH /api/tasks/:id/status` bypasses the LLM for deterministic UI actions (clicking a checkbox shouldn't cost an API call)
 - **Last 20 messages for context** — Enough for pronoun resolution without prompt explosion
 - **No authentication** — Scoped as a single-user local tool; adding auth would be the first step for multi-user deployment
 

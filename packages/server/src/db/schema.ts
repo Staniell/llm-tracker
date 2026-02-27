@@ -9,6 +9,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS task_details (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   role TEXT NOT NULL,

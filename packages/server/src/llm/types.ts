@@ -21,7 +21,13 @@ export interface DeleteTaskIntent {
   taskId: number;
 }
 
-export type LlmIntent = CreateTaskIntent | UpdateTaskIntent | DeleteTaskIntent;
+export interface AddDetailIntent {
+  type: "add_detail";
+  taskId: number;
+  content: string;
+}
+
+export type LlmIntent = CreateTaskIntent | UpdateTaskIntent | DeleteTaskIntent | AddDetailIntent;
 
 export interface LlmResponse {
   message: string;
@@ -32,4 +38,5 @@ export interface LlmContext {
   userMessage: string;
   tasks: Task[];
   recentMessages: ChatMessage[];
+  detailCounts: Map<number, number>;
 }

@@ -10,3 +10,10 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TaskDetail {
+  id: number;
+  taskId: number;
+  content: string;
+  createdAt: string;
+}

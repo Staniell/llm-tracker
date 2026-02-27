@@ -68,4 +68,23 @@ export const tools: FunctionDeclaration[] = [
       required: ["task_id"],
     },
   },
+  {
+    name: "add_detail",
+    description:
+      "Append a free-text note or detail to an existing task. Use when the user wants to add a note, comment, detail, update, or extra context to a task. Do NOT use update_task to change the description for this purpose.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        task_id: {
+          type: Type.NUMBER,
+          description: "The ID of the task to add a detail to",
+        },
+        content: {
+          type: Type.STRING,
+          description: "The note or detail text to append",
+        },
+      },
+      required: ["task_id", "content"],
+    },
+  },
 ];

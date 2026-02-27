@@ -4,6 +4,7 @@ import TaskCard from "./TaskCard.js";
 interface TaskListProps {
   tasks: Task[];
   onSelectTask: (id: number) => void;
+  onUpdateTaskStatus: (id: number, status: TaskStatus) => void;
 }
 
 const groupOrder: TaskStatus[] = ["in_progress", "todo", "done"];
@@ -14,7 +15,11 @@ const groupLabels: Record<TaskStatus, string> = {
   done: "Done",
 };
 
-export default function TaskList({ tasks, onSelectTask }: TaskListProps) {
+export default function TaskList({
+  tasks,
+  onSelectTask,
+  onUpdateTaskStatus,
+}: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -60,7 +65,12 @@ export default function TaskList({ tasks, onSelectTask }: TaskListProps) {
           </h3>
           <div className="space-y-0.5">
             {group.items.map((task) => (
-              <TaskCard key={task.id} task={task} onSelect={onSelectTask} />
+              <TaskCard
+                key={task.id}
+                task={task}
+                onSelect={onSelectTask}
+                onUpdateTaskStatus={onUpdateTaskStatus}
+              />
             ))}
           </div>
         </div>

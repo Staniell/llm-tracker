@@ -1,6 +1,7 @@
 import { getDb } from "../db/connection.js";
 import { chatRepo } from "../db/chat.repository.js";
 import { taskRepo } from "../db/task.repository.js";
+import { detailRepo } from "../db/detail.repository.js";
 import { idempotencyRepo } from "../db/idempotency.repository.js";
 import { hashMessage } from "../db/hash.js";
 import { interpret } from "../llm/interpreter.js";
@@ -19,12 +20,14 @@ export async function processMessage(
   // Build context for LLM
   const tasks = taskRepo.getAll();
   const recentMessages = chatRepo.getRecent(20);
+  const detailCounts = detailRepo.getDetailCounts();
 
   // Phase B: call LLM (async, outside transaction)
   const llmResponse = await interpret({
     userMessage: message,
     tasks,
     recentMessages,
+    detailCounts,
   });
 
   // Phase C: transaction -- re-check hash, execute intents, persist, cache
@@ -80,6 +83,12 @@ function executeIntent(intent: LlmIntent): TaskSideEffect | null {
       if (!task) return null;
       taskRepo.remove(intent.taskId);
       return { type: "deleted", task };
+    }
+    case "add_detail": {
+      const task = taskRepo.getById(intent.taskId);
+      if (!task) return null;
+      const detail = detailRepo.create(intent.taskId, intent.content);
+      return { type: "detail_added", task, detail };
     }
   }
 }

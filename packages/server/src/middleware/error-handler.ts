@@ -14,6 +14,14 @@ export function errorHandler(
     });
     return;
   }
+
+  // Express built-in middleware (e.g. json parser) sets err.status on parse failures
+  const status = (err as any).status;
+  if (typeof status === "number" && status >= 400 && status < 500) {
+    res.status(status).json({ error: err.message });
+    return;
+  }
+
   console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
 }

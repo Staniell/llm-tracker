@@ -34,6 +34,24 @@ async function chat(msg) {
   await sleep(1000);
 }
 
+async function showTaskDetails(taskId) {
+  const res = await fetch(`${BASE_URL}/api/tasks/${taskId}`);
+  if (!res.ok) {
+    red(`  Error fetching task #${taskId}: ${res.status}`);
+    return;
+  }
+  const data = await res.json();
+  bold(`  Task #${data.task.id}: "${data.task.title}"`);
+  if (data.details.length === 0) {
+    dim("    Notes: (none)");
+  } else {
+    for (const d of data.details) {
+      dim(`    • ${d.content}  (${d.createdAt})`);
+    }
+  }
+  console.log();
+}
+
 async function showTasks() {
   bold("--- Current Tasks ---");
   const res = await fetch(`${BASE_URL}/api/tasks`);
@@ -78,9 +96,25 @@ async function main() {
   await chat("I finished buying groceries");
   await showTasks();
 
-  // Step 5: Add details
-  bold("Step 5: Add details to a task");
+  // Step 5: Add details (R3 — appendable notes)
+  bold("Step 5: Add details to a task (proving append behavior)");
   await chat("Add a note to the report task: it's due by Friday and should cover Q4 metrics");
+
+  // Find the report task id from current tasks
+  const tasksRes = await fetch(`${BASE_URL}/api/tasks`);
+  const tasksData = await tasksRes.json();
+  const reportTask = tasksData.tasks.find((t) => /report/i.test(t.title));
+  if (reportTask) {
+    bold("  → Fetching task details after first note:");
+    await showTaskDetails(reportTask.id);
+  }
+
+  await chat("Add another note to the report: needs sign-off from the VP before submission");
+
+  if (reportTask) {
+    bold("  → Fetching task details after second note (should show BOTH):");
+    await showTaskDetails(reportTask.id);
+  }
   await showTasks();
 
   // Step 6: Change priority

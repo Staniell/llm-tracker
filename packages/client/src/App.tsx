@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ChatMessage, Task } from "./types.js";
-import { sendMessage, getTasks, resetAll } from "./api/client.js";
+import {
+  sendMessage,
+  getTasks,
+  resetAll,
+  updateTaskStatus as apiUpdateTaskStatus,
+} from "./api/client.js";
+import type { TaskStatus } from "./types.js";
 import Header from "./components/Header.js";
 import ChatPanel from "./components/ChatPanel.js";
 import TaskPanel from "./components/TaskPanel.js";
@@ -12,6 +18,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [detailVersion, setDetailVersion] = useState(0);
 
   useEffect(() => {
     getTasks()
@@ -54,10 +61,18 @@ export default function App() {
                 case "deleted":
                   next = next.filter((t) => t.id !== effect.task.id);
                   break;
+                case "detail_added":
+                  // Task list doesn't change, but bump detail version for re-fetch
+                  break;
               }
             }
             return next;
           });
+
+          // If any detail was added, bump version so TaskDetail re-fetches
+          if (response.sideEffects.some((e) => e.type === "detail_added")) {
+            setDetailVersion((v) => v + 1);
+          }
         }
       } catch (err) {
         const errorMessage: ChatMessage = {
@@ -72,6 +87,26 @@ export default function App() {
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
         setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  const handleUpdateTaskStatus = useCallback(
+    async (id: number, status: TaskStatus) => {
+      // Optimistic update
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status } : t))
+      );
+      try {
+        const updated = await apiUpdateTaskStatus(id, status);
+        setTasks((prev) =>
+          prev.map((t) => (t.id === id ? updated : t))
+        );
+      } catch {
+        // Revert on error — re-fetch full list
+        const fresh = await getTasks().catch(() => []);
+        if (fresh.length) setTasks(fresh);
       }
     },
     []
@@ -101,6 +136,8 @@ export default function App() {
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
+          onUpdateTaskStatus={handleUpdateTaskStatus}
+          detailVersion={detailVersion}
         />
       </div>
     </div>

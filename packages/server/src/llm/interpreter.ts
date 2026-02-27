@@ -8,6 +8,7 @@ import type {
   CreateTaskIntent,
   UpdateTaskIntent,
   DeleteTaskIntent,
+  AddDetailIntent,
 } from "./types.js";
 
 export async function interpret(context: LlmContext): Promise<LlmResponse> {
@@ -99,6 +100,16 @@ function parseFunctionCall(
       return { type: "delete_task", taskId } satisfies DeleteTaskIntent;
     }
 
+    case "add_detail": {
+      const taskId = args.task_id;
+      if (typeof taskId !== "number" || !args.content) return null;
+      return {
+        type: "add_detail",
+        taskId,
+        content: args.content,
+      } satisfies AddDetailIntent;
+    }
+
     default:
       return null;
   }
@@ -113,6 +124,8 @@ function summarizeIntents(intents: LlmIntent[]): string {
         return `Updated task #${intent.taskId}`;
       case "delete_task":
         return `Deleted task #${intent.taskId}`;
+      case "add_detail":
+        return `Added a note to task #${intent.taskId}`;
     }
   });
   return parts.join(". ") + ".";

@@ -1,9 +1,13 @@
-import type { Task } from "../types.js";
+import { useState, useEffect } from "react";
+import type { Task, TaskDetail as TaskDetailType, TaskStatus } from "../types.js";
+import { getTask } from "../api/client.js";
 import { formatDateTime } from "../utils/time.js";
 
 interface TaskDetailProps {
   task: Task;
   onBack: () => void;
+  onUpdateTaskStatus: (id: number, status: TaskStatus) => void;
+  detailVersion: number;
 }
 
 const statusLabel: Record<string, string> = {
@@ -30,7 +34,33 @@ const priorityStyles: Record<string, string> = {
   low: "bg-gray-100 text-gray-600",
 };
 
-export default function TaskDetail({ task, onBack }: TaskDetailProps) {
+export default function TaskDetail({
+  task,
+  onBack,
+  onUpdateTaskStatus,
+  detailVersion,
+}: TaskDetailProps) {
+  const [details, setDetails] = useState<TaskDetailType[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingDetails(true);
+    getTask(task.id)
+      .then((data) => {
+        if (!cancelled) {
+          setDetails(data.details);
+          setLoadingDetails(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadingDetails(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id, detailVersion]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 py-4 border-b border-gray-200">
@@ -73,6 +103,37 @@ export default function TaskDetail({ task, onBack }: TaskDetailProps) {
           </span>
         </div>
 
+        {/* Status action buttons */}
+        <div className="flex items-center gap-2 mt-4">
+          {task.status !== "done" && (
+            <button
+              onClick={() => onUpdateTaskStatus(task.id, "done")}
+              aria-label="Mark as done"
+              className="h-11 px-4 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            >
+              Mark as Done
+            </button>
+          )}
+          {task.status === "todo" && (
+            <button
+              onClick={() => onUpdateTaskStatus(task.id, "in_progress")}
+              aria-label="Start working"
+              className="h-11 px-4 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Start Working
+            </button>
+          )}
+          {task.status === "done" && (
+            <button
+              onClick={() => onUpdateTaskStatus(task.id, "todo")}
+              aria-label="Reopen task"
+              className="h-11 px-4 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+            >
+              Reopen
+            </button>
+          )}
+        </div>
+
         {task.description && (
           <div className="mt-5">
             <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -83,6 +144,60 @@ export default function TaskDetail({ task, onBack }: TaskDetailProps) {
             </p>
           </div>
         )}
+
+        {/* Notes section */}
+        <div className="mt-5">
+          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">
+            Notes
+          </h3>
+          {loadingDetails ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <svg
+                className="w-4 h-4 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Loading notes...
+            </div>
+          ) : details.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">
+              No notes yet — add one via chat
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {details.map((detail) => (
+                <div key={detail.id} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                    <div className="w-px flex-1 bg-gray-200 mt-1" />
+                  </div>
+                  <div className="pb-3 min-w-0">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {detail.content}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatDateTime(detail.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="mt-6 pt-5 border-t border-gray-100 space-y-2.5">
           <div className="flex items-center justify-between">

@@ -20,9 +20,17 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface TaskDetail {
+  id: number;
+  taskId: number;
+  content: string;
+  createdAt: string;
+}
+
 export interface TaskSideEffect {
-  type: "created" | "updated" | "deleted";
+  type: "created" | "updated" | "deleted" | "detail_added";
   task: Task;
+  detail?: TaskDetail;
 }
 
 export interface ChatResponse {
