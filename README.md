@@ -2,6 +2,8 @@
 
 A chat-based task tracker where natural language messages are interpreted by **Gemini 2.0 Flash** to create, update, and complete tasks. Built with a two-panel React UI (chat + task sidebar) and an Express backend with SQLite persistence.
 
+![Screenshot](screenshot.png)
+
 ## Features
 
 - **Natural language task management** — "Create a task to buy groceries", "Mark buy groceries as done"
