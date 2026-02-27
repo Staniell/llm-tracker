@@ -53,7 +53,8 @@ export default function TaskDetail({
           setLoadingDetails(false);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to fetch task details:", err);
         if (!cancelled) setLoadingDetails(false);
       });
     return () => {

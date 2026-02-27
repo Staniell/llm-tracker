@@ -23,8 +23,8 @@ export default function App() {
   useEffect(() => {
     getTasks()
       .then(setTasks)
-      .catch(() => {
-        /* server may not be running yet */
+      .catch((err) => {
+        console.error("Failed to fetch tasks:", err);
       });
   }, []);
 
@@ -103,7 +103,8 @@ export default function App() {
         setTasks((prev) =>
           prev.map((t) => (t.id === id ? updated : t))
         );
-      } catch {
+      } catch (err) {
+        console.error("Failed to update task status:", err);
         // Revert on error — re-fetch full list
         const fresh = await getTasks().catch(() => []);
         if (fresh.length) setTasks(fresh);
@@ -118,8 +119,8 @@ export default function App() {
       setMessages([]);
       setTasks([]);
       setSelectedTaskId(null);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error("Failed to reset:", err);
     }
   }, []);
 
