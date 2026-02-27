@@ -1,0 +1,21 @@
+{
+  "name": "llm-tracker",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w @llm-tracker/server",
+    "dev:client": "npm run dev -w @llm-tracker/client",
+    "build:shared": "npm run build -w @llm-tracker/shared",
+    "build:server": "npm run build -w @llm-tracker/server",
+    "build:client": "npm run build -w @llm-tracker/client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "test:idempotency": "node scripts/test-idempotency.js",
+    "test:edge-cases": "node scripts/test-edge-cases.js",
+    "demo": "node scripts/demo-walkthrough.js",
+    "test:all": "node scripts/test-idempotency.js && node scripts/test-edge-cases.js"
+  }
+}
